@@ -174,6 +174,8 @@ button.btn-block:hover {
     cursor: pointer;
     font-weight: 600;
     margin-right: 5px;
+    display: inline-block;
+    margin-top: 5px;
 }
 
 .btn-delete {
@@ -184,6 +186,7 @@ button.btn-block:hover {
     border-radius: 6px;
     cursor: pointer;
     font-weight: 600;
+    margin-top: 5px;
 }
 </style>
 </head>
@@ -238,10 +241,11 @@ button.btn-block:hover {
                 <option value="3">3 Dakika Önce</option>
                 <option value="5" selected>5 Dakika Önce</option>
                 <option value="10">10 Dakika Önce</option>
+                <option value="15">15 Dakika Önce</option>
             </select>
         </div>
 
-        <button class="btn-block" onclick="add()">Saldırı Ekle & Zamanla</button>
+        <button class="btn-block" onclick="add()">Saldırı Ekle & Telefon Sayacını Kur</button>
     </div>
 
     <div id="list"></div>
@@ -276,7 +280,7 @@ function add(){
     let warnMinutes = parseInt(document.getElementById("warnBefore").value);
 
     if(!date){
-        alert("Tarih seçin!");
+        alert("Lütfen geçerli bir tarih seçin!");
         return;
     }
 
@@ -287,16 +291,22 @@ function add(){
     let travelMs = parseTravel(travel);
 
     if(!travelMs){
-        alert("Süre hatalı! Format -> Saat:Dakika:Saniye");
+        alert("Yolculuk süresi hatalı! Format -> Saat:Dakika:Saniye");
         return;
     }
 
     let send = arrival - travelMs;
     let targetNotificationTime = send - (warnMinutes * 60 * 1000);
 
-    let id = Date.now();
+    let diffMs = targetNotificationTime - Date.now();
+    if (diffMs <= 0) {
+        alert("HATA: Hesaplanan hatırlatma zamanı geçmiş bir saate denk geliyor! Lütfen bilgileri kontrol edin.");
+        return;
+    }
+
+    // Listeye ekle
     ops.push({
-        id,
+        id: Date.now(),
         type,
         target,
         arrival,
@@ -308,21 +318,22 @@ function add(){
     saveOps();
     render();
 
-    // iOS Orijinal Zamanlayıcıyı Kurmayı Tetikle
-    startIosTimer(targetNotificationTime);
+    // Formu temizle
+    document.getElementById("target").value = "";
+    document.getElementById("travel").value = "";
+
+    // KULLANICI DOKUNMUŞKEN ANINDA KRONOMETREYİ BAŞLAT (iOS Engeline Takılmaz)
+    let diffSeconds = Math.floor(diffMs / 1000);
+    window.location.href = `clock-timer://?duration=${diffSeconds}`;
 }
 
-function startIosTimer(targetTime) {
+function triggerTimerDirectly(targetTime) {
     let diffMs = targetTime - Date.now();
     if (diffMs <= 0) {
-        alert("Hesaplanan hatırlatma zamanı geçmiş bir tarihte!");
+        alert("Bu operasyonun süresi çoktan geçmiş!");
         return;
     }
-    
-    // Saniyeye çeviriyoruz
     let diffSeconds = Math.floor(diffMs / 1000);
-    
-    // iPhone Saat uygulamasının geri sayım zamanlayıcısını tetikleyen gizli link
     window.location.href = `clock-timer://?duration=${diffSeconds}`;
 }
 
@@ -368,11 +379,11 @@ function render(){
                 <div>Hedef: <span class="op-target">${o.target}</span></div>
                 <div class="op-meta">Varış: ${format(o.arrival)}</div>
                 <div class="op-meta">Gönderim: <b>${format(o.send)}</b></div>
-                <div class="op-meta" style="color:var(--primary)">Hatırlatıcı: ${o.warnMinutes} dk önce</div>
+                <div class="op-meta" style="color:var(--primary)">Zamanlayıcı: ${o.warnMinutes} dk önce uyaracak</div>
             </div>
             <div class="op-action">
                 <div id="t_${o.id}" class="timer ok">--</div>
-                <button class="btn-timer" onclick="startIosTimer(${o.targetNotificationTime})">⏰ Sayacı Yenile</button>
+                <button class="btn-timer" onclick="triggerTimerDirectly(${o.targetNotificationTime})">⏰ Telefon Sayacını Yenile</button>
                 <button class="btn-delete" onclick="del(${o.id})">SİL</button>
             </div>
         `;
